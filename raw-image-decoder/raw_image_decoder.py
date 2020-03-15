@@ -7,16 +7,41 @@ from scipy.ndimage import convolve
 import matplotlib.pyplot as plt
 
 
-def im2double(img):
-    min_val = np.min(img.ravel())
+def im2double(img): 
+    """Converts image to double in range [0, 1],
+    equivalent to matlab's im2double
+    
+    Args:
+        img (np.ndarray): Image
+    Returns:
+        np.ndarray: The image in range [0, 1]
+    """
+    min_val = 0
     max_val = np.max(img.ravel())
+    if max_val < 255:
+        max_val = 255
     out = (img.astype('float') - min_val) / (max_val - min_val)
     return out
 
 def im2uint8(img):
+    """Converts image to uint8 in range [0, 255],
+    equivalent to matlab's im2uint8
+    
+    Args:
+        img (np.ndarray): Image
+    Returns:
+        np.ndarray: The image in range [0, 255]
+    """  
     return (img*255).astype('uint8')
 
 def demosaic(cfa):
+    """Bilinear demosaic of Bayer Color Filter Array
+    
+    Args:
+        cfa (np.ndarray): Bayer color filter array
+    Returns:
+        np.ndarray: 3d array of RGB image
+    """    
     height, width = cfa.shape
     out = np.zeros((height, width, 3))
 
@@ -32,7 +57,7 @@ def demosaic(cfa):
     B = np.multiply(cfa, repmat(b_bayer, height//2, width//2))
 
     diamond = np.array([[0, 1/4, 0],
-			            [1/4, 0, 1/4], 
+			            [1/4, 0, 1/4],
 			            [0, 1/4, 0]])
 
     corners = np.array([[1/4, 0, 1/4],
@@ -48,37 +73,78 @@ def demosaic(cfa):
     B += convolve(B, corners)
     out[:,:,2] = B + convolve(B, diamond)
 
-    return out
+    return np.clip(out, 0.0, 1.0)
 
-def white_balance(img, wb_pixel):
-    r_wb = img[wb_pixel[0], wb_pixel[1], 0]
-    g_wb = img[wb_pixel[0], wb_pixel[1], 1]
-    b_wb = img[wb_pixel[0], wb_pixel[1], 2]
+def white_balance(img, method='grayworld', wb_pixel=None):
+    """White balance of RGB image
+    Args:
+        img (np.ndarray): Image
+        method (str, optional): Method of whitebalance, {'user', 'grayworld'}. Defaults to 'grayworld'.
+        wb_pixel (tuple, optional): The reference pixel in case method is 'user'. Defaults to None.
+    
+    Returns:
+        np.ndarray: Image white balanced
+    """    
+    if method == 'grayworld':
+        r_wb = np.mean(img[:,:,0])
+        g_wb = np.mean(img[:,:,1])
+        b_wb = np.mean(img[:,:,2])
+        alpha = g_wb/r_wb
+        beta = g_wb/b_wb
 
-    img[:,:,0] *= 1./r_wb
-    img[:,:,1] *= 1./g_wb
-    img[:,:,2] *= 1./b_wb
+        img[:,:,0] *= alpha
+        img[:,:,2] *= beta
+    elif method == 'user' and wb_pixel is not None:
+        r_wb = img[wb_pixel[0], wb_pixel[1], 0]
+        g_wb = img[wb_pixel[0], wb_pixel[1], 1]
+        b_wb = img[wb_pixel[0], wb_pixel[1], 2]
 
-    return img
+        img[:,:,0] *= 1./r_wb
+        img[:,:,1] *= 1./g_wb
+        img[:,:,2] *= 1./b_wb
+    else:
+        raise('Method not implemented.')
+
+    return np.clip(img, 0.0, 1.0)
 
 def gamma_encoding(img, gamma=1.0/2.2):
+    """Gamma encoding
+    Args:
+        img (np.ndarray): Image
+        gamma (float, optional): Gamma value used. Defaults to 1.0/2.2.
+    Returns:
+        np.ndarray: Image gamma encoded
+    """    
     return img**gamma
 
-# %%
-raw = rawpy.imread('scene_raw.dng').raw_image * 2**4
+# %% Read dng file, and convert it to double in range [0, 1]
+raw = rawpy.imread('scene_raw.dng').raw_image * 2**4 # Scale values to 16-bit representation
 raw = im2double(raw)
 imageio.imwrite('./scene_raw.png', im2uint8(raw))
 
-# %%
+# %% Demosaic image to 3d array of RGB values
 image_demosaic = demosaic(raw)
 imageio.imwrite('./scene_demosaic.png', im2uint8(image_demosaic))
+#plt.imshow(im2uint8(image_demosaic))
+#plt.show()
 
 # %%
-image_wb = white_balance(image_demosaic, wb_pixel=(640, 2132))
-imageio.imwrite('./scene_whitebalanced.png', im2uint8(image_wb))
+icon_px = (767, 1753)
+paper_px = (2413, 1691)
+adapter_px = (1907, 2970)
 
-# %%
-image = gamma_encoding(image_wb, gamma=1/1.8)
-plt.imshow(im2uint8(image))
+image_wb_icon = white_balance(image_demosaic, method='user', wb_pixel=icon_px)
+imageio.imwrite('./scene_whitebalanced_{}x{}.png'.format(icon_px[0], icon_px[1]), im2uint8(image_wb_icon))
+
+image_wb_paper = white_balance(image_demosaic, method='user', wb_pixel=paper_px)
+imageio.imwrite('./scene_whitebalanced_{}x{}.png'.format(paper_px[0], paper_px[1]), im2uint8(image_wb_paper))
+
+image_wb_adapter = white_balance(image_demosaic, method='user', wb_pixel=adapter_px)
+imageio.imwrite('./scene_whitebalanced_{}x{}.png'.format(adapter_px[0], adapter_px[1]), im2uint8(image_wb_adapter))
+
+image_wb_grayworld = white_balance(white_balance(image_demosaic, method='grayworld'), method='grayworld')
+imageio.imwrite('./scene_whitebalanced_grayworld.png', im2uint8(image_wb_grayworld))
+
+# %% Gamma encoding
+image = gamma_encoding(image_wb_grayworld, gamma=1/2.2)
 imageio.imwrite('./scene_gammaencoded.png', im2uint8(image))
-
