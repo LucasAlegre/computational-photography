@@ -1,4 +1,4 @@
-# %%
+# %% Author: Lucas N. Alegre - Computational Photography 2020/1 UFRGS - Prof. Manuel Menezes de Oliveira Neto
 import rawpy
 import imageio
 import numpy as np
@@ -94,6 +94,7 @@ def white_balance(img, method='grayworld', wb_pixel=None):
 
         img[:,:,0] *= alpha
         img[:,:,2] *= beta
+
     elif method == 'user' and wb_pixel is not None:
         r_wb = img[wb_pixel[0], wb_pixel[1], 0]
         g_wb = img[wb_pixel[0], wb_pixel[1], 1]
@@ -102,6 +103,7 @@ def white_balance(img, method='grayworld', wb_pixel=None):
         img[:,:,0] *= 1./r_wb
         img[:,:,1] *= 1./g_wb
         img[:,:,2] *= 1./b_wb
+        
     else:
         raise('Method not implemented.')
 
@@ -125,13 +127,11 @@ imageio.imwrite('./scene_raw.png', im2uint8(raw))
 # %% Demosaic image to 3d array of RGB values
 image_demosaic = demosaic(raw)
 imageio.imwrite('./scene_demosaic.png', im2uint8(image_demosaic))
-#plt.imshow(im2uint8(image_demosaic))
-#plt.show()
 
-# %%
-icon_px = (767, 1753)
+# %% White balance
+icon_px = (640, 2132)
 paper_px = (2413, 1691)
-adapter_px = (1907, 2970)
+adapter_px = (1844, 3027)
 
 image_wb_icon = white_balance(image_demosaic, method='user', wb_pixel=icon_px)
 imageio.imwrite('./scene_whitebalanced_{}x{}.png'.format(icon_px[0], icon_px[1]), im2uint8(image_wb_icon))
@@ -142,9 +142,15 @@ imageio.imwrite('./scene_whitebalanced_{}x{}.png'.format(paper_px[0], paper_px[1
 image_wb_adapter = white_balance(image_demosaic, method='user', wb_pixel=adapter_px)
 imageio.imwrite('./scene_whitebalanced_{}x{}.png'.format(adapter_px[0], adapter_px[1]), im2uint8(image_wb_adapter))
 
-image_wb_grayworld = white_balance(white_balance(image_demosaic, method='grayworld'), method='grayworld')
+image_wb_grayworld = white_balance(image_demosaic, method='grayworld')
 imageio.imwrite('./scene_whitebalanced_grayworld.png', im2uint8(image_wb_grayworld))
 
 # %% Gamma encoding
 image = gamma_encoding(image_wb_grayworld, gamma=1/2.2)
-imageio.imwrite('./scene_gammaencoded.png', im2uint8(image))
+imageio.imwrite('./scene_gammaencoded_22.png', im2uint8(image))
+
+image = gamma_encoding(image_wb_grayworld, gamma=1/1.2)
+imageio.imwrite('./scene_gammaencoded_12.png', im2uint8(image))
+
+image = gamma_encoding(image_wb_grayworld, gamma=1/1.7)
+imageio.imwrite('./scene_gammaencoded_17.png', im2uint8(image))
