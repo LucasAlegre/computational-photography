@@ -7,7 +7,7 @@ from scipy.ndimage import convolve
 import matplotlib.pyplot as plt
 
 
-def im2double(img): 
+def im2double(img):
     """Converts image to double in range [0, 1],
     equivalent to matlab's im2double
     
