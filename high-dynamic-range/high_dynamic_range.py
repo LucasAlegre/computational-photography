@@ -30,23 +30,22 @@ def get_hdr(ldr_images, response_curve, exposure_times):
 
     return hdr
 
-def tonemap_global(img, alpha=0.18):
+def tonemap_global(img, alpha=0.18, saturation=1):
     luminance = 0.299*img[:,:,0] + 0.587*img[:,:,1] + 0.114*img[:,:,2]
     avg_luminance = np.exp(np.mean(np.log(luminance + 1e-8)))
-    gamma = 1/2.2
     scaled_luminance = (alpha/avg_luminance) * luminance
     
     global_operator = scaled_luminance / (1 + scaled_luminance)
 
     tonemapped = np.empty(img.shape)
-    tonemapped[:,:,0] = global_operator * (img[:,:,0]/luminance)**gamma
-    tonemapped[:,:,1] = global_operator * (img[:,:,1]/luminance)**gamma
-    tonemapped[:,:,2] = global_operator * (img[:,:,2]/luminance)**gamma
+    tonemapped[:,:,0] = global_operator * (img[:,:,0]/luminance)**saturation
+    tonemapped[:,:,1] = global_operator * (img[:,:,1]/luminance)**saturation
+    tonemapped[:,:,2] = global_operator * (img[:,:,2]/luminance)**saturation
 
     tonemapped[tonemapped > 1] = 1
     tonemapped *= 255
 
-    return tonemapped.astype('uint8')
+    return gamma_encoding(tonemapped.astype('uint8'))
 
 
 if __name__ == '__main__':
@@ -60,12 +59,5 @@ if __name__ == '__main__':
     io.savemat('hdr.mat', {'hdr':hdr})  # So I can open in MATLAB
 
     # Global Tonemmaping
-    alpha = 0.18
-    tonemapped = tonemap_global(hdr, alpha=alpha)
-    imsave('tonemapped_{}.png'.format(alpha), tonemapped)
-    alpha = 0.36
-    tonemapped = tonemap_global(hdr, alpha=alpha)
-    imsave('tonemapped_{}.png'.format(alpha), tonemapped)
-    alpha = 0.72
-    tonemapped = tonemap_global(hdr, alpha=alpha)
-    imsave('tonemapped_{}.png'.format(alpha), tonemapped)
+    tonemapped = tonemap_global(hdr, saturation=0.4)
+    imsave('tonemapped_s04.png', tonemapped)
