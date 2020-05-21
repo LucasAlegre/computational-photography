@@ -1,0 +1,1 @@
+sudo openvpn --config ~/VPN-UFRGS.ovpn
